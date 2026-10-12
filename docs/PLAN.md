@@ -2,7 +2,7 @@
 
 Decisions (from Sandy): Chrome extension, India + US, stocks + ETFs, free data, AI explanations with a confidence score, just for Sandy, builder walks through the code.
 
-## v0.1 (this commit): price-based report card
+## Done: v0.1 price-based scoring (src/analysis.js, reused for the gauge)
 Trend, momentum, risk and price level from 1y of daily prices. Rules-based, easy to read in `src/analysis.js`.
 
 ## v0.2: what an analyst checks about the business

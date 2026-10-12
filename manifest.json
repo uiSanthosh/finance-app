@@ -1,14 +1,42 @@
 {
   "manifest_version": 3,
   "name": "Finance App - Beginner Stock & ETF Research",
-  "version": "0.1.0",
-  "description": "Plain-English research report cards for stocks and ETFs (India and US), with a confidence score.",
-  "action": { "default_popup": "popup.html", "default_title": "Finance App" },
+  "version": "0.2.0",
+  "description": "A floating dock on finance pages that explains the stock or ETF you are viewing in plain English.",
+  "action": { "default_title": "Show or hide the Finance App dock" },
+  "background": { "service_worker": "background.js", "type": "module" },
   "options_page": "options.html",
   "permissions": ["storage"],
   "host_permissions": [
     "https://query1.finance.yahoo.com/*",
     "https://query2.finance.yahoo.com/*",
     "https://api.anthropic.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.google.com/finance/*",
+        "https://finance.yahoo.com/*",
+        "https://groww.in/*",
+        "https://www.tradingview.com/*",
+        "https://zerodha.com/*",
+        "https://kite.zerodha.com/*"
+      ],
+      "js": ["content/loader.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["content/*", "src/*"],
+      "matches": [
+        "https://www.google.com/*",
+        "https://finance.yahoo.com/*",
+        "https://groww.in/*",
+        "https://www.tradingview.com/*",
+        "https://zerodha.com/*",
+        "https://kite.zerodha.com/*"
+      ]
+    }
   ]
 }
