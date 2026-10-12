@@ -49,7 +49,8 @@ const handlers = {
     cached(`h:${symbol}`, async () => parseChart(symbol, await getJson(`${CHART}${encodeURIComponent(symbol)}?range=5y&interval=1d`))),
   resolve: ({ query, prefer }) =>
     cached(`s:${prefer}:${query}`, async () => {
-      const json = await getJson(`${SEARCH}?q=${encodeURIComponent(query)}&quotesCount=8&newsCount=0`);
+      const qs = `?q=${encodeURIComponent(query)}&quotesCount=8&newsCount=0`;
+      const json = await getJson(SEARCH + qs).catch(() => getJson(SEARCH.replace('query1', 'query2') + qs));
       return { symbol: pickSearchResult(json.quotes || [], prefer) };
     }),
   fundamentals: ({ symbol, currency }) =>
