@@ -1,5 +1,5 @@
 // The floating dock and stock panel, drawn inside a shadow root so page styles cannot break it.
-import { detect } from '../src/detect.js';
+import { detect, detectFromText } from '../src/detect.js';
 import { money, sliceRange, rangeStats, dayChange, chartGeometry, RANGES } from '../src/format.js';
 import { analyse, PROFILES } from '../src/analysis.js';
 import { HORIZONS, goodTime, gaugeGeometry } from '../src/gauge.js';
@@ -28,10 +28,10 @@ const CSS = `
 .btn.on { color: #f43f5e; }
 .btn.analyse { color: #4ade80; }
 .logo { width: 46px; height: 52px; border-radius: 12px; background: #1f1e55; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 22px; }
-.panel { position: fixed; top: 20px; right: 84px; z-index: 2147483647; width: 400px; max-height: calc(100vh - 40px); overflow: auto;
-  background: #fff; color: #1c1c28; border-radius: 14px; box-shadow: 0 8px 36px rgba(20,20,60,.28); padding: 16px; font-size: 13px; line-height: 1.45; }
+.panel { position: fixed; top: 20px; right: 84px; z-index: 2147483647; width: clamp(440px, 40vw, 780px); max-height: calc(100vh - 40px); overflow: auto;
+  background: #fff; color: #1c1c28; border-radius: 14px; box-shadow: 0 8px 36px rgba(20,20,60,.28); padding: 20px; font-size: 14px; line-height: 1.45; }
 .panel[hidden], .dock[hidden] { display: none; }
-h2 { margin: 0; font-size: 18px; } h3 { margin: 18px 0 8px; font-size: 14px; }
+h2 { margin: 0; font-size: 21px; } h3 { margin: 20px 0 8px; font-size: 16px; }
 .sub { color: #555; margin-top: 2px; }
 .price { font-size: 22px; font-weight: 700; margin-top: 8px; }
 .up { color: #15803d; } .down { color: #dc2626; }
@@ -39,7 +39,7 @@ h2 { margin: 0; font-size: 18px; } h3 { margin: 18px 0 8px; font-size: 14px; }
 .tabs button { flex: 1; border: 0; background: none; padding: 5px 0; border-radius: 6px; font-size: 12px; cursor: pointer; color: #444; }
 .tabs button.active { background: #fff; color: #4338ca; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .chartwrap { position: relative; margin-top: 8px; }
-svg.chart { width: 100%; height: 150px; display: block; }
+svg.chart { width: 100%; height: 210px; display: block; }
 .tip { position: absolute; top: 0; pointer-events: none; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 2px 6px; font-size: 11px; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
 .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
 .card { background: #eff2f9; border-radius: 8px; padding: 8px 6px; text-align: center; }
@@ -47,7 +47,7 @@ svg.chart { width: 100%; height: 150px; display: block; }
 .box { background: #f6f7fb; border-radius: 10px; padding: 10px; }
 .hint { color: #666; font-size: 11px; margin: 6px 0 0; }
 .gauge { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
-.gauge svg { flex: none; width: 160px; height: 96px; }
+.gauge svg { flex: none; width: 210px; height: 126px; }
 .verdict { font-size: 20px; font-weight: 700; margin: 2px 0; }
 .good { color: #15803d; } .wait { color: #b45309; } .bad { color: #dc2626; }
 .why { margin: 6px 0 0; padding: 0; list-style: none; font-size: 12px; }
@@ -58,7 +58,7 @@ svg.chart { width: 100%; height: 150px; display: block; }
 .alert input { flex: 1; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 15px; padding: 4px 6px; }
 .primary { border: 0; border-radius: 6px; background: #4f46e5; color: #fff; padding: 7px 12px; cursor: pointer; font: inherit; font-weight: 600; }
 .link { border: 0; background: none; color: #4338ca; cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
-.metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
 .metric { background: #f6f7fb; border-radius: 8px; padding: 8px; }
 .metric small { color: #555; font-size: 11px; cursor: help; } .metric b { display: block; font-size: 16px; margin: 1px 0; }
 .metric span { font-size: 11px; color: #555; }
@@ -109,6 +109,19 @@ export function start() {
     symbol: null, data: null, report: null, range: '3M', horizon: '1M', risk: 'medium',
     fund: { status: 'idle', metrics: [] }, url: location.href, title: document.title, fuzzy: false, view: 'stock',
   };
+
+  // Best guess of the stock on this page: an exact symbol in the URL, then a symbol printed on the page,
+  // then a company name to search for.
+  function findTarget() {
+    const byUrl = detect(location.href, document.title);
+    if (byUrl?.symbol) return byUrl;
+    const byText = detectFromText({
+      title: document.title,
+      description: document.querySelector('meta[name="description"]')?.content || '',
+      text: (document.body?.innerText || '').slice(0, 40000),
+    });
+    return byText || byUrl;
+  }
 
   const toast = (text) => {
     const el = document.createElement('div');
@@ -211,7 +224,7 @@ export function start() {
     state.view = 'stock';
     const d = state.data;
     const pts = sliceRange(d.points, state.range);
-    const g = chartGeometry(pts, 368, 150);
+    const g = chartGeometry(pts, 368, 210);
     const s = rangeStats(pts);
     const ch = dayChange(d.points, d.price);
     const dir = ch.amount >= 0 ? 'up' : 'down';
@@ -227,10 +240,10 @@ export function start() {
       <h3>Price history</h3>
       <div class="tabs" id="ranges">${Object.keys(RANGES).map((k) => `<button data-r="${k}" class="${k === state.range ? 'active' : ''}">${k}</button>`).join('')}</div>
       <div class="chartwrap">
-        <svg class="chart" id="chart" viewBox="0 0 368 150" preserveAspectRatio="none">
+        <svg class="chart" id="chart" viewBox="0 0 368 210" preserveAspectRatio="none">
           <path d="${g.area}" fill="${color}" opacity=".12"/>
           <path d="${g.line}" fill="none" stroke="${color}" stroke-width="1.8" vector-effect="non-scaling-stroke"/>
-          <line id="vl" y1="0" y2="150" stroke="#999" stroke-dasharray="3" visibility="hidden"/>
+          <line id="vl" y1="0" y2="210" stroke="#999" stroke-dasharray="3" visibility="hidden"/>
           <circle id="dot" r="3.5" fill="${color}" visibility="hidden"/>
         </svg>
         <div class="tip" id="tip" hidden></div>
@@ -320,7 +333,7 @@ export function start() {
 
   $('analyse').addEventListener('click', () => {
     if (!panel.hidden && state.view === 'stock') { panel.hidden = true; return; }
-    const found = detect(location.href, document.title);
+    const found = findTarget();
     if (found) load(found);
     else showMessage(`I could not tell which stock or ETF this page shows. Open a stock's own page and try again.<br><small>Page: ${esc(location.hostname + location.pathname)}</small>`);
   });
@@ -348,7 +361,7 @@ export function start() {
     state.url = location.href;
     state.title = document.title;
     if (panel.hidden || state.view !== 'stock') return;
-    const found = detect(location.href, document.title);
+    const found = findTarget();
     if (found) load(found);
-  }, 1000);
+  }, 1500);
 }

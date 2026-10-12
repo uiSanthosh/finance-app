@@ -4,7 +4,7 @@
 
 const US_EXCHANGES = new Set(['NASDAQ', 'NYSE', 'NYSEARCA', 'NYSEAMERICAN', 'AMEX', 'BATS']);
 const INDIA_HOSTS = ['groww.in', 'tickertape.in', 'upstox.com', 'angelone.in', 'economictimes.indiatimes.com', 'moneycontrol.com',
-  'screener.in', 'nseindia.com', 'bseindia.com', 'zerodha.com', 'in.tradingview.com', 'in.investing.com', 'in.finance.yahoo.com'];
+  'screener.in', 'nseindia.com', 'bseindia.com', 'zerodha.com', 'indmoney.com', 'in.tradingview.com', 'in.investing.com', 'in.finance.yahoo.com'];
 
 export function yahooSymbol(exchange, ticker) {
   const ex = exchange.toUpperCase();
@@ -30,7 +30,7 @@ export function nameFromTitle(title) {
 // Sites with their own URL rules above: if the URL is not a stock page there, do not guess from the title.
 const RULED = ['finance.yahoo.com', 'tradingview.com', 'screener.in', 'nseindia.com', 'bseindia.com', 'marketwatch.com', 'nasdaq.com',
   'stockanalysis.com', 'finviz.com', 'seekingalpha.com', 'cnbc.com', 'groww.in', 'tickertape.in', 'upstox.com', 'angelone.in',
-  'economictimes.indiatimes.com', 'investing.com'];
+  'economictimes.indiatimes.com', 'investing.com', 'indmoney.com'];
 
 const fromSlug = (slug) => slug.replace(/-share-price$/i, '').replace(/-/g, ' ').trim();
 
@@ -76,6 +76,10 @@ export function detect(urlString, title = '') {
     if ((m = path.match(/^\/quotes\/([^/]+)/))) return { symbol: m[1].toUpperCase().replace('.', '-') };
   } else if (is('groww.in')) {
     if ((m = path.match(/^\/(stocks|etfs|us-stocks)\/([^/]+)/))) return { query: fromSlug(m[2]), prefer: m[1] === 'us-stocks' ? 'US' : 'IN' };
+  } else if (is('indmoney.com')) {
+    if ((m = path.match(/^\/us-stocks\/etfs\/([a-z0-9.-]+)\/?$/i))) return { symbol: m[1].toUpperCase().replace('.', '-') };
+    if ((m = path.match(/^\/us-stocks\/[^/]*-share-price-([a-z0-9.-]+)\/?$/i))) return { symbol: m[1].toUpperCase().replace('.', '-') };
+    if ((m = path.match(/^\/stocks\/([^/]+)/))) return { query: fromSlug(m[1]), prefer: 'IN' };
   } else if (is('tickertape.in') || is('upstox.com') || is('angelone.in')) {
     if ((m = path.match(/^\/(?:stocks|etfs|stock)\/([^/]+)/))) return { query: fromSlug(m[1]), prefer };
   } else if (is('economictimes.indiatimes.com')) {
@@ -88,4 +92,29 @@ export function detect(urlString, title = '') {
   // Unknown page layout: fall back to the stock name in the page title (shown in the panel so a wrong match is easy to spot).
   const query = nameFromTitle(title);
   return query ? { query, prefer, fromTitle: true } : null;
+}
+
+// Reads the exchange symbol printed on the page itself (most broker sites show "NSE: RELIANCE",
+// "RELIANCE • NSE" or an "NSE Symbol RELIANCE" row). More reliable than searching by company name.
+// page: { title, description, text } where text is the start of the page's visible text.
+const NOT_TICKERS = new Set(['NSE', 'BSE', 'LIVE', 'SHARE', 'PRICE', 'STOCK', 'STOCKS', 'TODAY', 'INDEX', 'SYMBOL', 'NIFTY', 'SENSEX', 'ETF', 'BUY', 'SELL', 'CODE']);
+const isTicker = (t) => /^[A-Z][A-Z0-9&-]{1,19}$/.test(t) && !NOT_TICKERS.has(t);
+
+function scan(re, src) {
+  for (const m of src.matchAll(re)) if (isTicker(m[1])) return m[1];
+  return null;
+}
+
+export function detectFromText(page) {
+  const title = page.title || '', desc = page.description || '', text = page.text || '';
+  const all = `${title}\n${desc}\n${text}`;
+  let t, m;
+  if ((m = title.match(/\(([A-Z0-9&-]+\.(?:NS|BO))\)/))) return { symbol: m[1] }; // Yahoo: "(RELIANCE.NS)"
+  if ((t = scan(/\bNSE\s*(?:symbol|code)?\s*[:-]?\s*([A-Za-z][A-Za-z0-9&-]{1,19})\b/gi, all))) return { symbol: `${t}.NS` };
+  if ((t = scan(/\b([A-Z][A-Z0-9&-]{1,19})\s*[•·|]\s*NSE\b/g, all))) return { symbol: `${t}.NS` };
+  if ((m = all.match(/\bBSE\s*(?:code|scrip code)?\s*[:-]?\s*(\d{6})\b/i))) return { symbol: `${m[1]}.BO` };
+  if ((m = all.match(/\b(?:NASDAQ|NYSE|NYSEARCA|NYSE ARCA|NYSEAMERICAN|AMEX)\s*:\s*([A-Z]{1,5}(?:\.[A-Z])?)\b/))) return { symbol: m[1].replace('.', '-') };
+  // Tickertape style title: "RELIANCE Share Price Today: Reliance Industries NSE"
+  if ((m = title.match(/^([A-Z][A-Z0-9&-]{1,19}) Share Price/)) && isTicker(m[1]) && /\bNSE\b/.test(title)) return { symbol: `${m[1]}.NS` };
+  return null;
 }

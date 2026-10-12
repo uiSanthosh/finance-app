@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { analyse, maxDrawdown, volatility } from './src/analysis.js';
-import { detect, yahooSymbol, nameFromTitle } from './src/detect.js';
+import { detect, yahooSymbol, nameFromTitle, detectFromText } from './src/detect.js';
 import { parseChart, pickSearchResult } from './src/market.js';
 import { parseSummary, buildMetrics } from './src/fundamentals.js';
 import { goodTime, gaugeGeometry, HORIZONS } from './src/gauge.js';
@@ -49,6 +49,20 @@ assert.equal(detect('https://www.moneycontrol.com/', ''), null);
 assert.equal(detect('https://groww.in/', 'Groww: Stocks, Mutual Funds'), null);
 assert.equal(nameFromTitle('Infosys Ltd (INFY) Stock Price | Site'), 'Infosys Ltd');
 assert.equal(nameFromTitle('- '), null);
+assert.deepEqual(detect('https://www.indmoney.com/us-stocks/nvidia-corporation-share-price-nvda'), { symbol: 'NVDA' });
+assert.deepEqual(detect('https://www.indmoney.com/us-stocks/etfs/hyg'), { symbol: 'HYG' });
+assert.deepEqual(detect('https://www.indmoney.com/stocks/reliance-industries-ltd-share-price'), { query: 'reliance industries ltd', prefer: 'IN' });
+
+// symbols printed on the page (titles and text as captured from the live sites on 2026-10-12)
+const page = (title, text, description = '') => detectFromText({ title, text, description });
+assert.deepEqual(page('Reliance Industries Share Price, Stock Price, LIVE NSE/BSE - Groww', 'Reliance Industries\nRELIANCE •NSE\n₹1,400'), { symbol: 'RELIANCE.NS' });
+assert.deepEqual(page('RELIANCE Share Price Today: Reliance Industries NSE', 'RELIANCE Share Price\nNSE\n'), { symbol: 'RELIANCE.NS' });
+assert.deepEqual(page('Reliance Industries Ltd Share Price Today – Live NSE/BSE | INDmoney', 'NSE: RELIANCE\nBSE: 500325'), { symbol: 'RELIANCE.NS' });
+assert.deepEqual(page('Reliance Share Price - Reliance Industries Stock Price Today NSE/BSE | Angel One', 'RELIANCE\nNSE\nBSE\nAbout\nNSE Symbol\nRELIANCE'), { symbol: 'RELIANCE.NS' });
+assert.deepEqual(page('Reliance Industries Limited (RELIANCE.NS) Stock Price, News, Quote & History - Yahoo Finance', ''), { symbol: 'RELIANCE.NS' });
+assert.deepEqual(page('NVIDIA Corp', 'NASDAQ: NVDA'), { symbol: 'NVDA' });
+assert.deepEqual(page('Company', 'BSE Code: 500325'), { symbol: '500325.BO' });
+assert.equal(page('Live NSE/BSE share prices', 'NSE Live\nNSE is open'), null);
 assert.equal(detect('not a url'), null);
 assert.equal(yahooSymbol('LSE', 'VOD'), null);
 
