@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { analyse, maxDrawdown, volatility } from './src/analysis.js';
-import { detect, yahooSymbol } from './src/detect.js';
+import { detect, yahooSymbol, nameFromTitle } from './src/detect.js';
 import { parseChart, pickSearchResult } from './src/market.js';
 import { money, sliceRange, rangeStats, dayChange, chartGeometry } from './src/format.js';
 
@@ -22,6 +22,30 @@ assert.deepEqual(detect('https://www.tradingview.com/symbols/NASDAQ-AAPL/'), { s
 assert.deepEqual(detect('https://groww.in/stocks/reliance-industries-ltd'), { query: 'reliance industries ltd', prefer: 'IN' });
 assert.deepEqual(detect('https://groww.in/us-stocks/nvda'), { query: 'nvda', prefer: 'US' });
 assert.equal(detect('https://kite.zerodha.com/dashboard'), null);
+assert.deepEqual(detect('https://in.tradingview.com/symbols/NSE-RELIANCE/'), { symbol: 'RELIANCE.NS' });
+assert.deepEqual(detect('https://www.tradingview.com/chart/abc123/?symbol=NASDAQ%3ANVDA'), { symbol: 'NVDA' });
+assert.deepEqual(detect('https://in.finance.yahoo.com/quote/INFY.NS/'), { symbol: 'INFY.NS' });
+assert.deepEqual(detect('https://www.google.co.in/finance/quote/TCS:NSE'), { symbol: 'TCS.NS' });
+assert.deepEqual(detect('https://www.screener.in/company/TCS/consolidated/'), { symbol: 'TCS.NS' });
+assert.deepEqual(detect('https://www.screener.in/company/500325/'), { symbol: '500325.BO' });
+assert.deepEqual(detect('https://www.nseindia.com/get-quotes/equity?symbol=SBIN'), { symbol: 'SBIN.NS' });
+assert.deepEqual(detect('https://www.bseindia.com/stock-share-price/reliance-industries-ltd/reliance/500325/'), { symbol: '500325.BO' });
+assert.deepEqual(detect('https://www.marketwatch.com/investing/stock/aapl?mod=search'), { symbol: 'AAPL' });
+assert.deepEqual(detect('https://www.nasdaq.com/market-activity/etf/voo'), { symbol: 'VOO' });
+assert.deepEqual(detect('https://stockanalysis.com/stocks/msft/'), { symbol: 'MSFT' });
+assert.deepEqual(detect('https://finviz.com/quote.ashx?t=TSLA&p=d'), { symbol: 'TSLA' });
+assert.deepEqual(detect('https://seekingalpha.com/symbol/AMZN'), { symbol: 'AMZN' });
+assert.deepEqual(detect('https://www.cnbc.com/quotes/GOOGL'), { symbol: 'GOOGL' });
+assert.deepEqual(detect('https://tickertape.in/stocks/reliance-industries-RELI'), { query: 'reliance industries RELI', prefer: 'IN' });
+assert.deepEqual(detect('https://upstox.com/stocks/tata-motors-ltd-share-price/'), { query: 'tata motors ltd', prefer: 'IN' });
+assert.deepEqual(detect('https://economictimes.indiatimes.com/hdfc-bank-ltd/stocks/companyid-9195.cms'), { query: 'hdfc bank ltd', prefer: 'IN' });
+assert.deepEqual(detect('https://www.investing.com/equities/apple-computer-inc'), { query: 'apple computer inc', prefer: 'US' });
+assert.deepEqual(detect('https://www.moneycontrol.com/india/stockpricequote/refineries/relianceindustries/RI', 'Reliance Industries Share Price Today, Live Stock Price - Moneycontrol'),
+  { query: 'Reliance Industries', prefer: 'IN', fromTitle: true });
+assert.equal(detect('https://www.moneycontrol.com/', ''), null);
+assert.equal(detect('https://groww.in/', 'Groww: Stocks, Mutual Funds'), null);
+assert.equal(nameFromTitle('Infosys Ltd (INFY) Stock Price | Site'), 'Infosys Ltd');
+assert.equal(nameFromTitle('- '), null);
 assert.equal(detect('not a url'), null);
 assert.equal(yahooSymbol('LSE', 'VOD'), null);
 

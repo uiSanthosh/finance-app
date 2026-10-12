@@ -44,9 +44,6 @@ svg.chart { width: 100%; height: 150px; display: block; }
 .soon { background: #f5f6fb; border-radius: 8px; padding: 10px; color: #555; margin-top: 8px; }
 .foot { margin-top: 12px; color: #777; font-size: 11px; }
 .msg { padding: 24px 4px; text-align: center; color: #444; }
-form { display: flex; gap: 6px; margin-top: 10px; }
-input { flex: 1; padding: 7px 8px; border: 1px solid #bbb; border-radius: 6px; font: inherit; }
-form button { padding: 7px 12px; border: 0; border-radius: 6px; background: #4338ca; color: #fff; cursor: pointer; font: inherit; }
 .toast { position: fixed; top: 24px; right: 84px; z-index: 2147483647; background: #1f1e55; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 12px; }
 `;
 
@@ -74,7 +71,7 @@ export function start() {
     </div>
     <div class="panel" id="panel" hidden></div>`;
   const $ = (id) => root.getElementById(id);
-  const state = { symbol: null, data: null, range: '3M', url: location.href };
+  const state = { symbol: null, data: null, range: '3M', url: location.href, title: document.title, fuzzy: false };
 
   const toast = (text) => {
     const el = document.createElement('div');
@@ -85,18 +82,8 @@ export function start() {
   };
 
   const panel = $('panel');
-  const showMessage = (html) => { panel.hidden = false; panel.innerHTML = `<div class="msg">${html}</div>${searchForm()}${footer()}`; wireSearch(); };
   const footer = () => '<div class="foot">Education only, not personal investment advice.</div>';
-  const searchForm = () => '<form id="search"><input id="q" placeholder="Search a stock or ETF, e.g. TCS or VOO" autocomplete="off"><button>Go</button></form>';
-  function wireSearch() {
-    const form = root.getElementById('search');
-    if (!form) return;
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const q = root.getElementById('q').value.trim();
-      if (q) load({ query: q, prefer: 'IN' });
-    });
-  }
+  const showMessage = (html) => { panel.hidden = false; panel.innerHTML = `<div class="msg">${html}</div>${footer()}`; };
 
   async function load(target) {
     panel.hidden = false;
@@ -105,9 +92,10 @@ export function start() {
       let symbol = target.symbol;
       if (!symbol) {
         symbol = (await send({ type: 'resolve', query: target.query, prefer: target.prefer })).symbol;
-        if (!symbol) return showMessage(`Could not find "${esc(target.query)}". Try searching below.`);
+        if (!symbol) return showMessage(`I could not find a stock called "${esc(target.query)}".<br><small>Page title: ${esc(document.title)}</small>`);
       }
       state.symbol = symbol;
+      state.fuzzy = !!target.fromTitle;
       state.data = await send({ type: 'history', symbol });
       render();
     } catch (err) {
@@ -129,6 +117,7 @@ export function start() {
       <h2>${esc(d.name)}</h2>
       <div class="sub">${esc(d.exchange)}${d.type ? ' | ' + esc(d.type) : ''} | ${esc(d.symbol)}</div>
       <div class="price">${money(d.price, d.currency)} <span class="${dir}" style="font-size:14px">${sign}${money(Math.abs(ch.amount), d.currency)} (${sign}${(ch.percent * 100).toFixed(2)}%)</span></div>
+      ${state.fuzzy ? `<div class="sub">Matched from the page title. Not the right stock? Tell me the page address.</div>` : ''}
       <h3>Price history</h3>
       <div class="tabs">${Object.keys(RANGES).map((k) => `<button data-r="${k}" class="${k === state.range ? 'active' : ''}">${k}</button>`).join('')}</div>
       <div class="chartwrap">
@@ -146,10 +135,9 @@ export function start() {
         <div class="card"><small>Lowest</small><b>${money(s.low, d.currency)}</b></div>
       </div>
       <div class="soon">Next up: the Good time gauge, price-drop alerts and key metrics.</div>
-      ${searchForm()}${footer()}`;
+      ${footer()}`;
     panel.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => { state.range = b.dataset.r; render(); }));
     wireChart(pts, g, d.currency);
-    wireSearch();
     refreshHeart();
   }
 
@@ -181,9 +169,9 @@ export function start() {
 
   $('analyse').addEventListener('click', () => {
     if (!panel.hidden) { panel.hidden = true; return; }
-    const found = detect(location.href);
+    const found = detect(location.href, document.title);
     if (found) load(found);
-    else showMessage('I could not tell which stock this page shows. Search for it below.');
+    else showMessage(`I could not tell which stock or ETF this page shows. Open a stock's own page and try again.<br><small>Page: ${esc(location.hostname + location.pathname)}</small>`);
   });
   $('bell').addEventListener('click', () => toast('Price alerts are coming in the next step.'));
   $('gear').addEventListener('click', () => toast('Settings are coming in a later step.'));
@@ -205,10 +193,11 @@ export function start() {
 
   // Finance sites are single-page apps: reload the open panel when the stock in the URL changes.
   setInterval(() => {
-    if (location.href === state.url) return;
+    if (location.href === state.url && document.title === state.title) return;
     state.url = location.href;
+    state.title = document.title;
     if (panel.hidden) return;
-    const found = detect(location.href);
+    const found = detect(location.href, document.title);
     if (found) load(found);
   }, 1000);
 }

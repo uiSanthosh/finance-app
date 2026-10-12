@@ -1,12 +1,19 @@
 {
   "manifest_version": 3,
   "name": "Finance App - Beginner Stock & ETF Research",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A floating dock on finance pages that explains the stock or ETF you are viewing in plain English.",
-  "action": { "default_title": "Show or hide the Finance App dock" },
-  "background": { "service_worker": "background.js", "type": "module" },
+  "action": {
+    "default_title": "Show or hide the Finance App dock"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "options_page": "options.html",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://query1.finance.yahoo.com/*",
     "https://query2.finance.yahoo.com/*",
@@ -15,27 +22,62 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.google.com/finance/*",
-        "https://finance.yahoo.com/*",
-        "https://groww.in/*",
-        "https://www.tradingview.com/*",
-        "https://zerodha.com/*",
-        "https://kite.zerodha.com/*"
+        "https://*.google.com/finance/*",
+        "https://*.google.co.in/finance/*",
+        "https://*.finance.yahoo.com/*",
+        "https://*.tradingview.com/*",
+        "https://*.groww.in/*",
+        "https://*.tickertape.in/*",
+        "https://*.upstox.com/*",
+        "https://*.angelone.in/*",
+        "https://*.economictimes.indiatimes.com/*",
+        "https://*.moneycontrol.com/*",
+        "https://*.screener.in/*",
+        "https://*.nseindia.com/*",
+        "https://*.bseindia.com/*",
+        "https://*.marketwatch.com/*",
+        "https://*.nasdaq.com/*",
+        "https://*.stockanalysis.com/*",
+        "https://*.finviz.com/*",
+        "https://*.seekingalpha.com/*",
+        "https://*.cnbc.com/*",
+        "https://*.investing.com/*",
+        "https://*.zerodha.com/*"
       ],
-      "js": ["content/loader.js"],
+      "js": [
+        "content/loader.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["content/*", "src/*"],
+      "resources": [
+        "content/*",
+        "src/*"
+      ],
       "matches": [
-        "https://www.google.com/*",
-        "https://finance.yahoo.com/*",
-        "https://groww.in/*",
-        "https://www.tradingview.com/*",
-        "https://zerodha.com/*",
-        "https://kite.zerodha.com/*"
+        "https://*.google.com/*",
+        "https://*.google.co.in/*",
+        "https://*.finance.yahoo.com/*",
+        "https://*.tradingview.com/*",
+        "https://*.groww.in/*",
+        "https://*.tickertape.in/*",
+        "https://*.upstox.com/*",
+        "https://*.angelone.in/*",
+        "https://*.economictimes.indiatimes.com/*",
+        "https://*.moneycontrol.com/*",
+        "https://*.screener.in/*",
+        "https://*.nseindia.com/*",
+        "https://*.bseindia.com/*",
+        "https://*.marketwatch.com/*",
+        "https://*.nasdaq.com/*",
+        "https://*.stockanalysis.com/*",
+        "https://*.finviz.com/*",
+        "https://*.seekingalpha.com/*",
+        "https://*.cnbc.com/*",
+        "https://*.investing.com/*",
+        "https://*.zerodha.com/*"
       ]
     }
   ]
