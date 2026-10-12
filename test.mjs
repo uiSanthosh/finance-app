@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { analyse, maxDrawdown, volatility } from './src/analysis.js';
 import { detect, yahooSymbol, nameFromTitle } from './src/detect.js';
 import { parseChart, pickSearchResult } from './src/market.js';
+import { parseSummary, buildMetrics } from './src/fundamentals.js';
+import { goodTime, gaugeGeometry, HORIZONS } from './src/gauge.js';
+import { validateTarget, suggestTarget, dueAlerts } from './src/alerts.js';
 import { money, sliceRange, rangeStats, dayChange, chartGeometry } from './src/format.js';
 
 // analysis (kept for the Good time gauge)
@@ -73,4 +76,52 @@ const dc = dayChange([{ c: 100 }, { c: 200 }, { c: 209 }], 210);
 assert.ok(Math.abs(dc.percent - 0.05) < 1e-9);
 const g = chartGeometry([{ c: 1 }, { c: 3 }, { c: 2 }], 100, 50);
 assert.ok(g.up && g.line.startsWith('M') && g.nearest(0) === 0 && g.nearest(100) === 2);
+
+// fundamentals: stock
+const r = (v) => ({ raw: v });
+const summary = (over = {}) => ({ quoteSummary: { result: [{
+  price: { quoteType: 'EQUITY' }, assetProfile: { sector: 'Technology' },
+  summaryDetail: { trailingPE: r(28.98) }, defaultKeyStatistics: { trailingEps: r(7.91), priceToBook: r(23.78) },
+  financialData: { earningsGrowth: r(0.35), returnOnEquity: r(0.4), debtToEquity: r(45.2), profitMargins: r(0.6366) }, ...over }] } });
+const ms = buildMetrics(parseSummary(summary()), 'USD');
+assert.deepEqual(ms.map((m) => m.key), ['pe', 'growth', 'roe', 'de', 'margin']);
+assert.equal(ms.find((m) => m.key === 'pe').rating, 'ok');
+assert.equal(ms.find((m) => m.key === 'de').value, '0.45');
+assert.equal(ms.find((m) => m.key === 'de').rating, 'good');
+assert.equal(ms.find((m) => m.key === 'margin').value, '63.7%');
+// banks swap debt to equity for price to book
+const bank = buildMetrics(parseSummary(summary({ assetProfile: { sector: 'Financial Services' }, defaultKeyStatistics: { priceToBook: r(1.2) } })), 'INR');
+assert.ok(bank.some((m) => m.key === 'pb' && m.rating === 'good') && !bank.some((m) => m.key === 'de'));
+// loss-making company, missing data is hidden
+const loss = buildMetrics(parseSummary(summary({ summaryDetail: {}, defaultKeyStatistics: { trailingEps: r(-2) }, financialData: {} })), 'USD');
+assert.deepEqual(loss.map((m) => [m.key, m.rating]), [['pe', 'bad']]);
+// ETF
+const etf = buildMetrics(parseSummary({ quoteSummary: { result: [{ price: { quoteType: 'ETF' },
+  fundProfile: { feesExpensesInvestment: { annualReportExpenseRatio: r(0.0003) } },
+  summaryDetail: { totalAssets: r(4e11), bid: r(400), ask: r(400.1) } }] } }), 'USD');
+assert.deepEqual(etf.map((m) => [m.key, m.rating]), [['expense', 'good'], ['aum', 'good'], ['spread', 'good']]);
+assert.equal(etf[0].value, '0.03%');
+assert.equal(buildMetrics(null).length, 0);
+
+// gauge: price-only vs with company data, by horizon
+const rep = analyse(up);
+const bad = [{ rating: 'bad', label: 'X', value: '1', note: 'n' }];
+const good1 = goodTime(rep, [], '1M');
+assert.equal(good1.score, rep.overall);
+assert.ok(goodTime(rep, bad, '1Y').score < goodTime(rep, bad, '1M').score, 'company health matters more over a longer hold');
+assert.ok(['Good time', 'Wait', 'Bad time'].includes(good1.verdict));
+assert.ok(goodTime(rep, bad, '1Y').watch.some((t) => t.startsWith('X 1')));
+assert.ok(goodTime(rep, ms, '6M').confidence > good1.confidence);
+const geo = gaugeGeometry(100);
+assert.equal(geo.segments.length, 5);
+assert.ok(geo.needle.x > geo.cx && Math.abs(geo.needle.y - geo.cy) < 1e-6, 'score 100 points right');
+assert.ok(gaugeGeometry(0).needle.x < geo.cx);
+assert.deepEqual(Object.keys(HORIZONS), ['1M', '6M', '1Y']);
+
+// alerts
+assert.deepEqual(validateTarget('2,500', 2900), { target: 2500 });
+assert.ok(validateTarget('3000', 2900).error && validateTarget('abc', 10).error && validateTarget('0', 10).error);
+assert.equal(suggestTarget(226.58), 215);
+const al = [{ id: 'a', symbol: 'X', target: 100 }, { id: 'b', symbol: 'Y', target: 50 }, { id: 'c', symbol: 'Z', target: 5 }];
+assert.deepEqual(dueAlerts(al, { X: 99.5, Y: 60 }).map((a) => a.id), ['a']);
 console.log('all tests passed');

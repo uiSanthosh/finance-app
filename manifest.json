@@ -1,10 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Finance App - Beginner Stock & ETF Research",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "A floating dock on finance pages that explains the stock or ETF you are viewing in plain English.",
   "action": {
-    "default_title": "Show or hide the Finance App dock"
+    "default_title": "Show or hide the Finance App dock",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "background": {
     "service_worker": "background.js",
@@ -12,11 +17,14 @@
   },
   "options_page": "options.html",
   "permissions": [
-    "storage"
+    "storage",
+    "alarms",
+    "notifications"
   ],
   "host_permissions": [
     "https://query1.finance.yahoo.com/*",
     "https://query2.finance.yahoo.com/*",
+    "https://fc.yahoo.com/*",
     "https://api.anthropic.com/*"
   ],
   "content_scripts": [
@@ -80,5 +88,10 @@
         "https://*.zerodha.com/*"
       ]
     }
-  ]
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
 }
